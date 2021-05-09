@@ -1,6 +1,7 @@
 from flask import Flask, request
 from w3lib.url import parse_data_uri
 import base64
+from time import sleep
 
 from flask_cors import CORS
 
@@ -20,7 +21,10 @@ def validar():
     parsed_uri = parse_data_uri(photo_uri)
     with open("/tmp/photo.png","wb") as f:
         f.write(parsed_uri[2])
-    return "ano"
+
+    sleep(3)
+
+    return {"valid":True, "key": "unsha"}
 
 @app.route('/api/send_photo', methods=["POST"])
 def get_photo():
