@@ -25,8 +25,11 @@ class PipelineTest(unittest.TestCase):
         # passed
         self.assertTrue(True)
 
-    def test_face_detector(self):
-        pipeline.detect_faces(img_a)
+    def test_detect(self):
+        global img_a
+        global_config.DEBUG = False
+        name = pipeline.recognize(img_a)
+        self.assertEqual("daniela_carral_cortes", name)
 
     def tearDown(self):
         pass

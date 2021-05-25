@@ -1,4 +1,4 @@
-DEBUG = False
+DEBUG = True
 DETECTOR_PATH = "resources/deploy.prototxt"
 CAFFE_MODEL = "resources/res10_300x300_ssd_iter_140000.caffemodel"
 CONFIANZA_DETECTOR = 0.90

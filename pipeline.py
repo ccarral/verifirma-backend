@@ -1,19 +1,22 @@
 from option import Option
+import imutils
 import pprint
 import cv2
 import numpy as np
 import pandas as pd
 import base64
-import global_config
+import global_config as cfg
 from w3lib.url import parse_data_uri
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
+import os
+import pickle
 
 #https://github.com/opencv/opencv/raw/3.4.0/samples/dnn/face_detector/deploy.prototxt
-PROTOTXT = "resources/deploy.prototxt"
+#  PROTOTXT = "resources/deploy.prototxt"
 
 #pre-trained weights: https://github.com/opencv/opencv_3rdparty/raw/dnn_samples_face_detector_20170830/res10_300x300_ssd_iter_140000.caffemodel
-CAFFE_MODEL = "resources/res10_300x300_ssd_iter_140000.caffemodel"
+#  CAFFE_MODEL = "resources/res10_300x300_ssd_iter_140000.caffemodel"
 
 
 def img_from_uri(photo_uri):
@@ -27,64 +30,77 @@ def img_from_uri(photo_uri):
     return img
 
 
-def pipeline_main(raw_img):
-    pass
+def recognize(img):
 
+    prototype_path = cfg.DETECTOR_PATH
+    model_path = cfg.CAFFE_MODEL
 
-def detect_faces(raw_img):
-    detector = cv2.dnn.readNetFromCaffe(PROTOTXT, CAFFE_MODEL)
-    original_size = raw_img.shape
-    target_size = (300, 300)
-    resized_img = cv2.resize(raw_img, target_size)
+    detector = cv2.dnn.readNetFromCaffe(prototype_path, model_path)
 
-    aspect_ratio_x = (original_size[0]/target_size[0])
-    aspect_ratio_y = (original_size[1]/target_size[1])
+    embedder_path = cfg.EMBEDDER_PATH
+    embedder = cv2.dnn.readNetFromTorch(embedder_path)
 
-    image_blob = cv2.dnn.blobFromImage(resized_img)
+    label_encoderer_path = cfg.LABEL_ENCODER_PATH
+    recognizer_path = cfg.RECOGNIZER_PATH
 
+    f1 = open(label_encoderer_path, "rb")
+    f2 = open(recognizer_path, "rb")
+
+    label_encoder = pickle.loads(f1.read())
+    recognizer = pickle.loads(f2.read())
+
+    f1.close()
+    f2.close()
+
+    image = imutils.resize(img, width=600)
+    (h, w) = image.shape[:2]
+
+    image_blob = cv2.dnn.blobFromImage(cv2.resize(
+        image, (300, 300)), 1.0, (300, 300), (104.0, 177.0, 123.0), swapRB=False, crop=False)
+
+    # Detectar rostros en la imagen
     detector.setInput(image_blob)
     detections = detector.forward()
 
-    columns = ["img_id", "es_cara", "confianza",
-               "left",  "top", "right", "bottom"]
+    for i in range(detections.shape[2]):
 
-    detections_df = pd.DataFrame(detections[0][0], columns=columns)
+        confidence = detections[0, 0, i, 2]
 
-    detections_df = detections_df[detections_df["es_cara"] == 1]
+        if confidence > cfg.CONFIANZA_DETECTOR:
 
-    detections_df = detections_df[detections_df['confianza'] >= 0.90]
+            box = detections[0, 0, i, 3:7] * np.array([w, h, w, h])
+            (startX, startY, endX, endY) = box.astype("int")
 
-    detections_df['left'] = (detections_df['left'] * 300).astype(int)
-    detections_df['bottom'] = (detections_df['bottom'] * 300).astype(int)
-    detections_df['right'] = (detections_df['right'] * 300).astype(int)
-    detections_df['top'] = (detections_df['top'] * 300).astype(int)
+            face = image[startY:endY, startX:endX]
+            (fH, fW) = face.shape[:2]
 
-    if global_config.DEBUG:
-        print(detections_df)
+            # ensure the face width and height are sufficiently large
+            if fW < 20 or fH < 20:
+                continue
 
-    for i, instance in detections_df.iterrows():
-        left = instance["left"]
-        right = instance["right"]
-        bottom = instance["bottom"]
-        top = instance["top"]
-        #  print("l:{},r:{},t:{},b:{}".format(left, right, top, bottom))
+            faceBlob = cv2.dnn.blobFromImage(
+                face, 1.0 / 255, (96, 96), (0, 0, 0), swapRB=True, crop=False)
+            embedder.setInput(faceBlob)
+            vec = embedder.forward()
 
-        height = bottom - top
-        width = right - left
+            # perform classification to recognize the face
+            preds = recognizer.predict_proba(vec)[0]
+            j = np.argmax(preds)
+            proba = preds[j]
+            name = label_encoder.classes_[j]
 
-        print("w:{},h:{}".format(width, height))
+            if cfg.DEBUG:
+                # draw the bounding box of the face along with the associated
+                # probability
+                text = "{}: {:.2f}%".format(name, proba * 100)
+                y = startY - 10 if startY - 10 > 10 else startY + 10
+                cv2.rectangle(image, (startX, startY), (endX, endY),
+                              (0, 0, 255), 2)
+                cv2.putText(image, text, (startX, y),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.45, (0, 0, 255), 2)
 
-        rect = patches.Rectangle(
-            (left, bottom), width, height, linewidth=1, edgecolor='r', facecolor='none')
+                # show the output image
+                cv2.imshow("Image", image)
+                cv2.waitKey(0)
 
-        fig, ax = plt.subplots()
-
-        ax.imshow(raw_img)
-        ax.add_patch(rect)
-
-        #  detected_face = raw_img[int(top*aspect_ratio_y):int(
-        #  bottom*aspect_ratio_y), int(left*aspect_ratio_x):int(right*aspect_ratio_x)]
-
-        #  pprint.pprint(detected_face)
-        #  plt.imshow(detected_face[:, :, ::-1])
-        plt.show()
+            return name
