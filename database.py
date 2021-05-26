@@ -60,3 +60,18 @@ def insert_user(values: dict):
     with conn:
         conn.execute(
             "INSERT INTO users (num_cuenta, nombres, primer_apellido, segundo_apellido,password_hash, etiqueta)VALUES (?,?,?,?,?,?)", values_tuple)
+
+
+def get_name_if_exists(num_cuenta, password_hash):
+    conn = sqlite3.connect(global_config.DATABASE)
+    cur = conn.cursor()
+
+    cur.execute(
+        "SELECT (etiqueta) FROM users WHERE num_cuenta=? AND password_hash=?", (num_cuenta, password_hash))
+
+    row = cur.fetchone()
+
+    if row:
+        return row[0]
+    else:
+        return None
