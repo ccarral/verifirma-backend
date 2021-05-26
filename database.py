@@ -64,6 +64,7 @@ def insert_user(values: dict):
 
 def get_name_if_exists(num_cuenta, password_hash):
     conn = sqlite3.connect(global_config.DATABASE)
+
     cur = conn.cursor()
 
     cur.execute(
@@ -75,3 +76,13 @@ def get_name_if_exists(num_cuenta, password_hash):
         return row[0]
     else:
         return None
+
+
+def valid_credentials(recognized_name, password_hash, num_cuenta):
+
+    retrieved_name = get_name_if_exists(num_cuenta, password_hash)
+
+    if retrieved_name:
+        return retrieved_name == recognized_name
+    else:
+        return False
