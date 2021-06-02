@@ -38,3 +38,7 @@ def validar():
 @app.route('/api/send_photo', methods=["POST"])
 def get_photo():
     photo = request.files["photo"]
+
+
+if __name__ == "__main__":
+    app.run()
