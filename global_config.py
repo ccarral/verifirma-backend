@@ -9,3 +9,8 @@ RECOGNIZER_PATH = "output/recognizer.pickle"
 LABEL_ENCODER_PATH = "output/label_encoder.pickle"
 OUTPUT_DIR = "output"
 DATABASE = "users.db"
+PREPROCESSING_CONFIG = {
+    "gaussian_blur": False,
+    "hist_eq": False,
+    "unsharp_mask": False
+}

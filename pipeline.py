@@ -1,6 +1,7 @@
 from option import Option
 import imutils
 import pprint
+import preprocessing
 import cv2
 import numpy as np
 import pandas as pd
@@ -30,7 +31,7 @@ def img_from_uri(photo_uri):
     return img
 
 
-def recognize(img):
+def recognize(img, preprocessing_params=cfg.PREPROCESSING_CONFIG):
 
     prototype_path = cfg.DETECTOR_PATH
     model_path = cfg.CAFFE_MODEL
@@ -51,6 +52,8 @@ def recognize(img):
 
     f1.close()
     f2.close()
+
+    img = preprocessing.preprocess(img, preprocessing_params)
 
     image = imutils.resize(img, width=600)
     (h, w) = image.shape[:2]
